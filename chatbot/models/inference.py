@@ -17,7 +17,7 @@ class AyurvedicGenerator:
     """Load fine-tuned mT5 model and generate Hindi Ayurvedic responses."""
 
     def __init__(self):
-        from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, MT5TokenizerFast
+        from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         print(f"Loading generator on: {self.device}")
@@ -41,35 +41,19 @@ class AyurvedicGenerator:
             os.path.exists(model_dir)
             and any(os.path.exists(os.path.join(model_dir, name)) for name in local_weight_files)
         )
-        has_local_fast_tokenizer = os.path.exists(os.path.join(model_dir, "tokenizer.json"))
         has_local_slow_tokenizer = os.path.exists(os.path.join(model_dir, "spiece.model"))
-        has_local_tokenizer = has_local_fast_tokenizer or has_local_slow_tokenizer
 
         self.is_finetuned = has_local_config and has_local_weights
 
         if self.is_finetuned:
             print(f"Loading local full model from: {model_dir}")
 
-            # For a full fine-tuned mT5 checkpoint, the base mT5 tokenizer is the safest choice.
-            # Colab-exported tokenizer.json files can decode incorrectly even when the model weights are fine.
-            try:
-                self.tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL_NAME, use_fast=False)
-                print(f"Using base tokenizer: {BASE_MODEL_NAME}")
-            except Exception as exc:
-                print(f"Base tokenizer load failed, falling back to local tokenizer: {exc}")
-                if has_local_tokenizer:
-                    if has_local_fast_tokenizer:
-                        self.tokenizer = MT5TokenizerFast(
-                            tokenizer_file=os.path.join(model_dir, "tokenizer.json"),
-                            eos_token="</s>",
-                            pad_token="<pad>",
-                            unk_token="<unk>",
-                            extra_ids=0,
-                        )
-                    else:
-                        self.tokenizer = AutoTokenizer.from_pretrained(model_dir, use_fast=False)
-                else:
-                    raise
+            if not has_local_slow_tokenizer:
+                raise FileNotFoundError(
+                    f"Missing spiece.model in {model_dir}. Copy the full inference tokenizer files first."
+                )
+
+            self.tokenizer = AutoTokenizer.from_pretrained(model_dir, use_fast=False)
             self.model = AutoModelForSeq2SeqLM.from_pretrained(
                 model_dir,
                 device_map="auto" if torch.cuda.is_available() else None
