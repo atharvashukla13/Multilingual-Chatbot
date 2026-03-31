@@ -25,7 +25,7 @@ class AyurvedicRAG:
 
     def __init__(self):
         print("=" * 50)
-        print("🚀 Initializing Ayurvedic RAG Pipeline...")
+        print("Initializing Ayurvedic RAG Pipeline...")
         print("=" * 50)
 
         # Initialize components
@@ -38,7 +38,7 @@ class AyurvedicRAG:
         self.generator = AyurvedicGenerator()
 
         print("\n" + "=" * 50)
-        print("✅ Ayurvedic RAG Pipeline ready!")
+        print("Ayurvedic RAG Pipeline ready!")
         print("=" * 50)
 
     def answer(self, user_query, top_k=5):

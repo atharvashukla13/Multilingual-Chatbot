@@ -20,7 +20,7 @@ class HindiRetriever:
         from sentence_transformers import SentenceTransformer
 
         # Load embedding model
-        print(f"🔄 Loading embedding model: {EMBEDDING_MODEL_NAME}")
+        print(f"Loading embedding model: {EMBEDDING_MODEL_NAME}")
         self.model = SentenceTransformer(EMBEDDING_MODEL_NAME)
 
         # Load FAISS index
@@ -31,13 +31,13 @@ class HindiRetriever:
             )
         
         self.index = faiss.read_index(index_file)
-        print(f"  ✅ FAISS index loaded ({self.index.ntotal} vectors)")
+        print(f"  FAISS index loaded ({self.index.ntotal} vectors)")
 
         # Load metadata
         metadata_file = os.path.join(FAISS_INDEX_PATH, "metadata.json")
         with open(metadata_file, "r", encoding="utf-8") as f:
             self.metadata = json.load(f)
-        print(f"  ✅ Metadata loaded ({len(self.metadata)} entries)")
+        print(f"  Metadata loaded ({len(self.metadata)} entries)")
 
     def retrieve(self, query_hi, top_k=None):
         """

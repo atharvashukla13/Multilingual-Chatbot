@@ -17,51 +17,73 @@ class AyurvedicGenerator:
     """Load fine-tuned mT5 model and generate Hindi Ayurvedic responses."""
 
     def __init__(self):
-        from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+        from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, MT5TokenizerFast
 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         print(f"Loading generator on: {self.device}")
 
-        # Check if LoRA adapters exist
-        adapter_config = os.path.join(FINE_TUNED_MODEL_DIR, "adapter_config.json")
-        has_finetuned = os.path.exists(adapter_config)
+        model_dir = FINE_TUNED_MODEL_DIR
 
-        if has_finetuned:
-            # Load tokenizer from fine-tuned dir
-            self.tokenizer = AutoTokenizer.from_pretrained(FINE_TUNED_MODEL_DIR)
+        # Auto-fix Google Drive single-shard safetensors bug
+        broken_name = os.path.join(model_dir, "model-001.safetensors")
+        fixed_name = os.path.join(model_dir, "model.safetensors")
+        if os.path.exists(broken_name) and not os.path.exists(fixed_name):
+            os.rename(broken_name, fixed_name)
 
-            # Load base model + merge LoRA adapters
-            print(f"Loading base model: {BASE_MODEL_NAME}")
-            from peft import PeftModel
+        has_local_config = os.path.exists(os.path.join(model_dir, "config.json"))
+        local_weight_files = (
+            "model.safetensors",
+            "model.safetensors.index.json",
+            "pytorch_model.bin",
+            "pytorch_model.bin.index.json",
+        )
+        has_local_weights = (
+            os.path.exists(model_dir)
+            and any(os.path.exists(os.path.join(model_dir, name)) for name in local_weight_files)
+        )
+        has_local_fast_tokenizer = os.path.exists(os.path.join(model_dir, "tokenizer.json"))
+        has_local_slow_tokenizer = os.path.exists(os.path.join(model_dir, "spiece.model"))
+        has_local_tokenizer = has_local_fast_tokenizer or has_local_slow_tokenizer
 
-            if torch.cuda.is_available():
-                from transformers import BitsAndBytesConfig
-                bnb_config = BitsAndBytesConfig(
-                    load_in_4bit=True,
-                    bnb_4bit_quant_type="nf4",
-                    bnb_4bit_compute_dtype=torch.float16,
-                )
-                base_model = AutoModelForSeq2SeqLM.from_pretrained(
-                    BASE_MODEL_NAME,
-                    quantization_config=bnb_config,
-                    device_map="auto",
-                )
-            else:
-                base_model = AutoModelForSeq2SeqLM.from_pretrained(BASE_MODEL_NAME)
-                base_model = base_model.to(self.device)
+        self.is_finetuned = has_local_config and has_local_weights
 
-            print(f"Loading LoRA adapters: {FINE_TUNED_MODEL_DIR}")
-            self.model = PeftModel.from_pretrained(base_model, FINE_TUNED_MODEL_DIR)
+        if self.is_finetuned:
+            print(f"Loading local full model from: {model_dir}")
+
+            # For a full fine-tuned mT5 checkpoint, the base mT5 tokenizer is the safest choice.
+            # Colab-exported tokenizer.json files can decode incorrectly even when the model weights are fine.
+            try:
+                self.tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL_NAME, use_fast=False)
+                print(f"Using base tokenizer: {BASE_MODEL_NAME}")
+            except Exception as exc:
+                print(f"Base tokenizer load failed, falling back to local tokenizer: {exc}")
+                if has_local_tokenizer:
+                    if has_local_fast_tokenizer:
+                        self.tokenizer = MT5TokenizerFast(
+                            tokenizer_file=os.path.join(model_dir, "tokenizer.json"),
+                            eos_token="</s>",
+                            pad_token="<pad>",
+                            unk_token="<unk>",
+                            extra_ids=0,
+                        )
+                    else:
+                        self.tokenizer = AutoTokenizer.from_pretrained(model_dir, use_fast=False)
+                else:
+                    raise
+            self.model = AutoModelForSeq2SeqLM.from_pretrained(
+                model_dir,
+                device_map="auto" if torch.cuda.is_available() else None
+            )
+            if not torch.cuda.is_available():
+                self.model = self.model.to(self.device)
         else:
-            # No fine-tuned model yet — use base model directly
-            print(f"No fine-tuned model found at {FINE_TUNED_MODEL_DIR}")
-            print(f"Using base model: {BASE_MODEL_NAME}")
-            self.tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL_NAME)
+            print(f"Local full model not found at {model_dir}")
+            print(f"Falling back to base model: {BASE_MODEL_NAME}")
+            self.tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL_NAME, use_fast=False)
             self.model = AutoModelForSeq2SeqLM.from_pretrained(BASE_MODEL_NAME)
             self.model = self.model.to(self.device)
 
         self.model.eval()
-        self.is_finetuned = has_finetuned
         print("Generator loaded!")
 
     def generate(self, query_hi, context_passages=None):
@@ -78,7 +100,7 @@ class AyurvedicGenerator:
         # Build input text
         if context_passages:
             context = " ".join(context_passages[:3])  # Use top 3 passages
-            input_text = f"प्रश्न: {query_hi} संदर्भ: {context}"
+            input_text = f"प्रश्न: इन तथ्यों के आधार पर जानकारी दें: '{context}'। {query_hi}"
         else:
             input_text = f"प्रश्न: {query_hi}"
 
@@ -103,9 +125,10 @@ class AyurvedicGenerator:
 
         # Decode
         response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+        response = response.replace("<extra_id_0>", "").strip()
 
         # If base model produces garbage (extra_id tokens), use retrieval fallback
-        if not self.is_finetuned and (not response.strip() or "extra_id" in response or len(response.strip()) < 10):
+        if not self.is_finetuned and len(response) < 10:
             if context_passages:
                 # Return the most relevant passage as the answer
                 return context_passages[0]
