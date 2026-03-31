@@ -1,0 +1,69 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Project-specific huge files (Data & Models)
+# Ignore FAISS vector database
+chatbot/data/faiss_index/
+
+# Ignore processed data outputs (they can be regenerated)
+chatbot/data/processed/*.json
+
+# IGNORE MASSIVE MODEL WEIGHTS AND CHECKPOINTS (CRITICAL)
+chatbot/models/mt5_ayurvedic_lora/model.safetensors
+chatbot/models/mt5_ayurvedic_lora/optimizer.pt
+chatbot/models/mt5_ayurvedic_lora/pytorch_model.bin
+chatbot/models/mt5_ayurvedic_lora/tokenizer.json
+chatbot/models/mt5_ayurvedic_lora/tokenizer_config.json
+chatbot/models/mt5_ayurvedic_lora/trainer_state.json
+chatbot/models/mt5_ayurvedic_lora/*.pt
+chatbot/models/mt5_ayurvedic_lora/*.bin
+chatbot/models/mt5_ayurvedic_lora/*.safetensors
+chatbot/models/mt5_ayurvedic_lora/checkpoint-*/
+
+# Ignore temporary scripts from Antigravity/Colab modifications
+chatbot/modify_ipynb.py
+chatbot/modify_ipynb_drive.py
+modify_ipynb.py
+modify_ipynb_drive.py
+
+# Ignore massive datasets
+chatbot/dataset/himed_trad_corpus.json
+chatbot/dataset/*.zip
