@@ -25,3 +25,6 @@ pandas>=2.0.0
 numpy>=1.24.0
 tqdm>=4.65.0
 scikit-learn>=1.3.0
+
+# Q-LREF Cryptography
+cryptography>=41.0.0

@@ -66,3 +66,13 @@ LENGTH_PENALTY = 1.0
 TRAIN_RATIO = 0.8
 VAL_RATIO = 0.1
 TEST_RATIO = 0.1
+
+# ──────────────────────────────────────────────
+# Q-LREF Cryptographic Parameters
+# ──────────────────────────────────────────────
+QLREF_ENABLED = True
+QLREF_LATTICE_DIM = 512          # n — lattice dimension
+QLREF_MODULUS = 12289             # q — prime modulus (NewHope standard)
+QLREF_NOISE_SIGMA = 3.2          # sigma — Gaussian noise std dev
+QLREF_SECURITY_PARAM = 128       # lambda — security parameter (bits)
+QLREF_KEY_ROTATION_MESSAGES = 100 # Rotate keys every N messages
